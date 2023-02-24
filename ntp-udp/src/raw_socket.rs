@@ -151,6 +151,7 @@ mod recv_message {
 
     pub(crate) enum MessageQueue {
         Normal,
+        #[cfg(target_os = "linux")]
         Error,
     }
 
@@ -179,6 +180,7 @@ mod recv_message {
 
         let receive_flags = match queue {
             MessageQueue::Normal => 0,
+            #[cfg(target_os = "linux")]
             MessageQueue::Error => libc::MSG_ERRQUEUE,
         };
 
@@ -273,6 +275,7 @@ mod recv_message {
 
     pub(crate) enum ControlMessage {
         Timestamping(crate::LibcTimestamp),
+        #[cfg(target_os = "linux")]
         ReceiveError(libc::sock_extended_err),
         Other(libc::cmsghdr),
     }
@@ -318,6 +321,7 @@ mod recv_message {
                     ControlMessage::Timestamping(LibcTimestamp::Timeval(timeval))
                 }
 
+                #[cfg(target_os = "linux")]
                 (libc::SOL_IP, libc::IP_RECVERR) | (libc::SOL_IPV6, libc::IPV6_RECVERR) => {
                     // this is part of how timestamps are reported.
                     // Safety:
@@ -379,6 +383,7 @@ mod timestamping_config {
     impl TimestampingConfig {
         /// Enable all timestamping options that are supported by this crate and the hardware/software
         /// of the device we're running on
+        #[cfg(target_os = "linux")]
         #[allow(dead_code)]
         pub(crate) fn all_supported(udp_socket: &std::net::UdpSocket) -> std::io::Result<Self> {
             // Get time stamping and PHC info
@@ -420,6 +425,16 @@ mod timestamping_config {
                 Ok(Self::default())
             }
         }
+
+        #[cfg(any(target_os = "freebsd", target_os = "macos"))]
+        #[allow(dead_code)]
+        pub(crate) fn all_supported(udp_socket: &std::net::UdpSocket) -> std::io::Result<Self> {
+            // just use the defaults
+            Ok(Self {
+                rx_software: true,
+                tx_software: false,
+            })
+        }
     }
 }
 
@@ -434,6 +449,7 @@ mod exceptional_condition_fd {
     // other than the normal read queue (see also https://github.com/tokio-rs/tokio/issues/4885)
     // this works around that by creating a epoll fd that becomes
     // ready to read when the underlying fd has an event on its error queue.
+    #[cfg(target_os = "linux")]
     pub(crate) fn exceptional_condition_fd(
         socket_of_interest: &std::net::UdpSocket,
     ) -> std::io::Result<AsyncFd<RawFd>> {
@@ -461,6 +477,15 @@ mod exceptional_condition_fd {
                 &mut event,
             )
         })?;
+
+        AsyncFd::new(fd)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn exceptional_condition_fd(
+        socket_of_interest: &std::net::UdpSocket,
+    ) -> std::io::Result<AsyncFd<RawFd>> {
+        let fd = 0;
 
         AsyncFd::new(fd)
     }
