@@ -9,6 +9,7 @@ use ntp_proto::NtpTimestamp;
 pub use socket::UdpSocket;
 
 pub(crate) enum LibcTimestamp {
+    #[cfg_attr(any(target_os = "macos", target_os = "freebsd"), allow(unused))]
     Timespec(libc::timespec),
     Timeval(libc::timeval),
 }
