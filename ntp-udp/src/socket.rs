@@ -537,6 +537,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(target_os = "macos", ignore = "send timestamps are not supported")]
     async fn test_send_timestamp() {
         let mut a = UdpSocket::client_with_timestamping(
             SocketAddr::from((Ipv4Addr::LOCALHOST, 8012)),
